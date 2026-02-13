@@ -14,7 +14,16 @@ export function StatBadge({ color, value, label }) {
   );
 }
 
-export default function Header({ doneCount, pendingCount, errorCount, onToggleSidebar, sidebarOpen }) {
+export default function Header({
+  doneCount,
+  pendingCount,
+  errorCount,
+  onToggleSidebar,
+  sidebarOpen,
+  userEmail,
+  userRole,
+  onLogout,
+}) {
   return (
     <header style={styles.header}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -40,6 +49,17 @@ export default function Header({ doneCount, pendingCount, errorCount, onToggleSi
         <StatBadge color="var(--success)" value={doneCount} label="scrapeados" />
         <StatBadge color="var(--warning)" value={pendingCount} label="pendientes" />
         <StatBadge color="var(--danger)" value={errorCount} label="errores" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            {userEmail} ({userRole})
+          </span>
+          <button
+            onClick={onLogout}
+            style={{ ...styles.btn, ...styles.btnSecondary, ...styles.btnSmall }}
+          >
+            Salir
+          </button>
+        </div>
       </div>
     </header>
   );

@@ -6,7 +6,7 @@ import { useState, useRef, useCallback } from 'react';
  * Custom hook that encapsulates all scraping logic: URLs, queue, results,
  * concurrency-limited scraping, export, etc.
  */
-export default function useScraper() {
+export default function useScraper(getAuthHeaders = () => ({})) {
   const [urls, setUrls] = useState('');
   const [queue, setQueue] = useState([]); // { url, status: 'pending'|'active'|'done'|'error', data?, error?, errorType? }
   const [results, setResults] = useState([]);
@@ -84,7 +84,10 @@ export default function useScraper() {
         try {
           const res = await fetch('/api/scrape', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              ...getAuthHeaders(),
+            },
             body: JSON.stringify({ url }),
           });
 
@@ -199,7 +202,10 @@ export default function useScraper() {
         try {
           const res = await fetch('/api/scrape', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              ...getAuthHeaders(),
+            },
             body: JSON.stringify({ url }),
           });
           const json = await res.json();
@@ -253,7 +259,10 @@ export default function useScraper() {
     try {
       const res = await fetch('/api/scrape', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
         body: JSON.stringify({ url: urlToRetry }),
       });
       const json = await res.json();

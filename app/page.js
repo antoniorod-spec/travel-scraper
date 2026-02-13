@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import useScraper from './hooks/useScraper';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
@@ -10,9 +10,22 @@ import TableView from './components/TableView';
 import DetailPanel from './components/DetailPanel';
 import Notification from './components/Notification';
 import styles from './styles';
+import { supabaseClient } from '../lib/supabase/client';
 
 export default function Home() {
-  const scraper = useScraper();
+  const [session, setSession] = useState(null);
+  const [role, setRole] = useState('viewer');
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const getAuthHeaders = useCallback(() => {
+    const token = session?.access_token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }, [session]);
+
+  const scraper = useScraper(getAuthHeaders);
   const [view, setView] = useState('cards');
   const [detailIndex, setDetailIndex] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -22,6 +35,67 @@ export default function Home() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterCountry, setFilterCountry] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    const bootstrap = async () => {
+      const { data } = await supabaseClient.auth.getSession();
+      if (!mounted) return;
+      setSession(data.session || null);
+      if (data.session?.user?.id) {
+        await loadProfileRole(data.session.user.id);
+      }
+      setAuthLoading(false);
+    };
+    bootstrap();
+
+    const { data: listener } = supabaseClient.auth.onAuthStateChange(async (_event, nextSession) => {
+      setSession(nextSession || null);
+      if (nextSession?.user?.id) {
+        await loadProfileRole(nextSession.user.id);
+      } else {
+        setRole('viewer');
+      }
+    });
+
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  const loadProfileRole = async (userId) => {
+    const { data } = await supabaseClient
+      .from('profiles')
+      .select('role')
+      .eq('user_id', userId)
+      .maybeSingle();
+    setRole(data?.role || 'viewer');
+  };
+
+  const login = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) {
+      setAuthError(error.message);
+    }
+  };
+
+  const signUp = async () => {
+    setAuthError('');
+    const { error } = await supabaseClient.auth.signUp({ email, password });
+    if (error) {
+      setAuthError(error.message);
+      return;
+    }
+    setAuthError('Cuenta creada. Si tienes confirmación por email, revísala.');
+  };
+
+  const logout = async () => {
+    await supabaseClient.auth.signOut();
+    scraper.clearAll();
+  };
 
   // ---- Update a single field in results (for editable detail panel) ----
   const updateResult = useCallback((fieldKey, value) => {
@@ -95,6 +169,58 @@ export default function Home() {
   const validResults = filteredResults.filter((r) => !r.error);
   const errorResults = filteredResults.filter((r) => r.error);
 
+  if (authLoading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        Cargando sesión...
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 20 }}>
+        <form
+          onSubmit={login}
+          style={{
+            width: '100%',
+            maxWidth: 420,
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border)',
+            borderRadius: 12,
+            padding: 20,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+          }}
+        >
+          <h2 style={{ fontSize: 22, marginBottom: 8 }}>Acceso</h2>
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={styles.editableInput}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Contraseña"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={styles.editableInput}
+            required
+          />
+          <button type="submit" style={{ ...styles.btn, ...styles.btnPrimary }}>Entrar</button>
+          <button type="button" onClick={signUp} style={{ ...styles.btn, ...styles.btnSecondary }}>
+            Crear cuenta
+          </button>
+          {authError && <div style={{ color: 'var(--warning)', fontSize: 13 }}>{authError}</div>}
+        </form>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* ===== HEADER ===== */}
@@ -104,6 +230,9 @@ export default function Home() {
         errorCount={scraper.errorCount}
         onToggleSidebar={() => setSidebarOpen((v) => !v)}
         sidebarOpen={sidebarOpen}
+        userEmail={session.user?.email || ''}
+        userRole={role}
+        onLogout={logout}
       />
 
       <div style={styles.main}>

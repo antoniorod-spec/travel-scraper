@@ -8,10 +8,11 @@
     "start": "next start"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.95.3",
+    "cheerio": "^1.0.0-rc.12",
     "next": "^14.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "cheerio": "^1.0.0-rc.12",
     "xlsx": "^0.18.5"
   }
 }
