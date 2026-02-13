@@ -1,6 +1,7 @@
 import { fetchPageHtml, parseCircuitPage } from '../../../lib/scraper';
 import { consumeRateLimit, getClientIp } from '../../../lib/rateLimit';
 import { validateTargetUrl } from '../../../lib/security';
+import { getCache, setCache } from '../../../lib/cache';
 
 export const maxDuration = 60; // Vercel Pro: up to 300s
 
@@ -30,21 +31,32 @@ export async function POST(request) {
       return Response.json({ error: check.reason }, { status: 400 });
     }
 
-    // Fetch the page
+    // Check cache first
+    const cached = getCache(check.normalizedUrl);
+    if (cached) {
+      return Response.json({ success: true, data: { ...cached, fromCache: true } });
+    }
+
+    // Fetch the page (with automatic retry + backoff)
     const html = await fetchPageHtml(check.normalizedUrl);
 
     // Parse it
     const data = parseCircuitPage(html, check.normalizedUrl);
 
+    // Store in cache
+    setCache(check.normalizedUrl, data);
+
     return Response.json({ success: true, data });
   } catch (error) {
     console.error('Scrape error:', error);
+    const errorType = error.errorType || 'unknown';
     return Response.json(
       {
         error: error.message || 'Failed to scrape URL',
+        errorType,
         details: error.cause?.code || '',
       },
-      { status: 500 }
+      { status: error.statusCode || 500 }
     );
   }
 }

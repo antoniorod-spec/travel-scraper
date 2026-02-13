@@ -90,7 +90,7 @@ export async function POST(request) {
         toSafeCell(d.category1, 200),
         toSafeCell(d.category2, 200),
         d.price || '',
-        '', // categoría 3
+        toSafeCell(d.category3, 200),
         toSafeCell(d.title, 500),
         toSafeCell(d.metaDescription, 5000), // descripción larga
         toSafeCell(d.dateText, 500),
